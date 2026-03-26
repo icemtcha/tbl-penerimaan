@@ -5,54 +5,57 @@ include '../koneksi.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 if (!isset($_FILES['file'])) {
-    echo "error: file tidak ada";
+    echo "error: file tidak ditemukan";
     exit;
 }
 
-try {
-    $sheet = IOFactory::load($_FILES['file']['tmp_name'])->getActiveSheet();
-    $rows  = $sheet->toArray(null, true, true, false);
-} catch (Exception $e) {
-    echo "error: gagal baca excel";
-    exit;
-}
+$sheet = IOFactory::load($_FILES['file']['tmp_name'])->getActiveSheet();
+$rows  = $sheet->toArray(null, true, true, false);
 
-$header = array_map('trim', array_shift($rows));
-
+// header excel (lowercase biar aman)
+$header = array_map(fn($h)=>strtolower(trim($h)), array_shift($rows));
 $map = array_flip($header);
 
 $sukses = 0;
+$gagal  = 0;
 
 foreach($rows as $row){
 
-    $kode   = $row[$map['Kode Penerimaan']] ?? '';
+    $kode = $row[$map['kode penerimaan']] ?? '';
     if(!$kode) continue;
 
-    $sub    = $row[$map['Sub Akun Penerimaan']] ?? '';
-    $nama   = $row[$map['Nama']] ?? '';
-    $harta  = $row[$map['Akun Harta']] ?? '';
-    $pend   = $row[$map['Akun Pendapatan']] ?? '';
-    $apbs   = $row[$map['Akun Pendapatan APBS']] ?? '';
-    $ikat   = $row[$map['Pendapatan Terikat']] ?? '';
-    $ket    = $row[$map['Keterangan']] ?? '';
-    $status = $row[$map['Status']] ?? '';
+    $sub   = $row[$map['sub akun penerimaan']] ?? '';
+    $nama  = $row[$map['nama']] ?? '';
+    $harta = $row[$map['akun harta']] ?? '';
+    $pend  = $row[$map['akun pendapatan']] ?? '';
+    $apbs  = $row[$map['akun pendapatan apbs']] ?? '';
+    $ikat  = $row[$map['pendapatan terikat']] ?? '';
+    $ket   = $row[$map['keterangan']] ?? '';
+    $status= $row[$map['status']] ?? 'Aktif';
 
-    $sql = "INSERT INTO tb_penerimaan
-            (kode_penerimaan,sub_akun,nama,akun_harta,akun_pendapatan,akun_apbs,terikat,keterangan,status)
-            VALUES
-            ('$kode','$sub','$nama','$harta','$pend','$apbs','$ikat','$ket','$status')
-            ON DUPLICATE KEY UPDATE
-            nama='$nama',
-            sub_akun='$sub',
-            akun_harta='$harta',
-            akun_pendapatan='$pend',
-            akun_apbs='$apbs',
-            terikat='$ikat',
-            keterangan='$ket',
-            status='$status'";
+    $sql = "INSERT INTO tbl_jenis_penerimaan
+    (kd_penerimaan, subakun_pendapatan, nama, akun_harta,
+    akun_pendapatan, akun_pendapatan_apbs, akun_pendapatan_terikat,
+    keterangan, status, date_created, date_modified)
+    VALUES
+    ('$kode','$sub','$nama','$harta','$pend','$apbs','$ikat',
+    '$ket','$status',NOW(),NOW())
+    ON DUPLICATE KEY UPDATE
+    subakun_pendapatan='$sub',
+    nama='$nama',
+    akun_harta='$harta',
+    akun_pendapatan='$pend',
+    akun_pendapatan_apbs='$apbs',
+    akun_pendapatan_terikat='$ikat',
+    keterangan='$ket',
+    status='$status',
+    date_modified=NOW()";
 
-    mysqli_query($koneksi,$sql);
-    $sukses++;
+    if(mysqli_query($koneksi,$sql)){
+        $sukses++;
+    } else {
+        $gagal++;
+    }
 }
 
-echo "success: $sukses data masuk";
+echo "success: $sukses data berhasil diproses";
